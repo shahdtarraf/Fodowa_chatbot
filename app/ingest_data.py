@@ -46,13 +46,13 @@ from app.utils.logger import logger
 PDF_PATH = os.path.join("data", "knowledge_base.pdf")
 
 
-def ingest() -> None:
-    """Run the full ingestion pipeline."""
-
+def build_faiss_index() -> None:
+    """Build FAISS index from PDF - can be called from main.py on startup."""
+    
     # 1. Validate that the PDF exists
     if not os.path.isfile(PDF_PATH):
         logger.error("❌  PDF not found at '%s'. Place your knowledge-base PDF there first.", PDF_PATH)
-        sys.exit(1)
+        return
 
     # 2. Load the PDF
     logger.info("📄  Loading PDF from '%s' …", PDF_PATH)
@@ -97,21 +97,26 @@ def ingest() -> None:
     if not warmup_success:
         logger.warning("   ⚠️ Warmup didn't complete but proceeding anyway...")
 
-    # Build FAISS index with retry
+    # Build FAISS index
     @retry(
         stop=stop_after_attempt(HF_MAX_RETRIES),
         wait=wait_exponential(multiplier=1, min=HF_RETRY_DELAY, max=30),
     )
-    def build_faiss_index():
+    def _build_index():
         return FAISS.from_documents(chunks, embeddings)
 
-    vector_store = build_faiss_index()
+    vector_store = _build_index()
 
     # 5. Save to disk
     os.makedirs(FAISS_INDEX_PATH, exist_ok=True)
     vector_store.save_local(FAISS_INDEX_PATH)
     logger.info("💾  FAISS index saved to '%s'.", FAISS_INDEX_PATH)
     logger.info("✅  Ingestion complete — %d chunks indexed.", len(chunks))
+
+
+def ingest() -> None:
+    """Run the full ingestion pipeline (CLI entry point)."""
+    build_faiss_index()
 
 
 if __name__ == "__main__":
