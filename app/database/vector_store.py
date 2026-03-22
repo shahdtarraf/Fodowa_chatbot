@@ -10,9 +10,9 @@ from typing import Optional
 import os
 
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
-from app.utils.config import FAISS_INDEX_PATH, HF_EMBEDDING_MODEL, HUGGINGFACEHUB_API_TOKEN
+from app.utils.config import FAISS_INDEX_PATH, HF_EMBEDDING_MODEL
 from app.utils.logger import logger
 
 # Module-level singleton — populated by ``load_vector_store()``.
@@ -37,9 +37,10 @@ def load_vector_store() -> Optional[FAISS]:
 
     logger.info("Loading FAISS index from '%s' …", FAISS_INDEX_PATH)
     try:
-        embeddings = HuggingFaceEndpointEmbeddings(
-            model=HF_EMBEDDING_MODEL,
-            huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
+        embeddings = HuggingFaceEmbeddings(
+            model_name=HF_EMBEDDING_MODEL,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
         )
         _vector_store = FAISS.load_local(
             FAISS_INDEX_PATH,

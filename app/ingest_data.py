@@ -23,12 +23,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from dotenv import load_dotenv
 load_dotenv()
 
-import time
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
 from app.utils.config import (
@@ -71,31 +70,14 @@ def build_faiss_index() -> None:
     chunks = splitter.split_documents(documents)
     logger.info("   Created %d chunk(s).", len(chunks))
 
-    # 4. Generate embeddings & build FAISS index (Serverless API)
-    logger.info("🧠  Generating embeddings via HuggingFace API with '%s' …", HF_EMBEDDING_MODEL)
-    embeddings = HuggingFaceEndpointEmbeddings(
-        model=HF_EMBEDDING_MODEL,
-        huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
+    # 4. Generate embeddings & build FAISS index (local model - no API needed)
+    logger.info("🧠  Loading local embedding model '%s' …", HF_EMBEDDING_MODEL)
+    embeddings = HuggingFaceEmbeddings(
+        model_name=HF_EMBEDDING_MODEL,
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
     )
-
-    # Warmup with retry - model may be cold on HuggingFace Serverless API
-    max_warmup_retries = 10
-    warmup_success = False
-    for attempt in range(1, max_warmup_retries + 1):
-        try:
-            logger.info("   Warming up embedding model (Attempt %d/%d)...", attempt, max_warmup_retries)
-            res = embeddings.embed_query("warmup")
-            if isinstance(res, list) and len(res) > 0:
-                logger.info("   ✅ Model is ready! Proceeding with chunk embedding...")
-                warmup_success = True
-                break
-        except Exception as e:
-            wait_time = min(attempt * 10, 60)  # Exponential backoff, max 60s
-            logger.warning("   Model warming up, waiting %ds... (Error: %s)", wait_time, repr(e))
-            time.sleep(wait_time)
-
-    if not warmup_success:
-        logger.warning("   ⚠️ Warmup didn't complete but proceeding anyway...")
+    logger.info("   ✅ Embedding model loaded.")
 
     # Build FAISS index
     @retry(
