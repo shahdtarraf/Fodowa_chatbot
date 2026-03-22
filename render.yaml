@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: fodwa-chatbot
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: HUGGINGFACEHUB_API_TOKEN
+        sync: false
+      - key: HF_MODEL_ID
+        value: Qwen/Qwen2.5-7B-Instruct
+      - key: HF_EMBEDDING_MODEL
+        value: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      - key: RAG_TOP_K
+        value: "5"
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: DJANGO_BACKEND_URL
+        value: http://localhost:8000
