@@ -1,73 +1,64 @@
 """
-Streamlit UI for FODWA Chatbot with Authentication.
+FODWA AI Assistant - Streamlit Frontend
+
+Production-ready chat UI for Streamlit Cloud deployment.
+Connects to FastAPI backend on Render.
 
 Features:
-- Login/Signup pages
-- Per-user chat history
-- Persistent messages in SQLite
-- Predefined questions
+- Modern chat interface with st.chat_message
+- Predefined quick questions
+- Session-based chat memory
+- Arabic-first design
 """
 
 import streamlit as st
 import requests
 from typing import List, Dict
 
-# API endpoint
-API_URL = "http://localhost:8000"  # Change for production
+# ── Configuration ────────────────────────────────────────────────────────
+API_URL = "https://fodowa-chatbot.onrender.com/chat"
 
 # Page config
 st.set_page_config(
-    page_title="FODWA Chatbot",
+    page_title="FODWA AI Assistant",
     page_icon="🤖",
     layout="centered",
+    initial_sidebar_state="collapsed",
 )
 
-# Import auth module
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from app.auth.auth_handler import signup, login
-from app.database.db import get_user_messages, save_message, clear_user_messages
-
-
 # ── Session State Initialization ────────────────────────────────────────
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "username" not in st.session_state:
-    st.session_state.username = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "page" not in st.session_state:
-    st.session_state.page = "login"
+
+if "conversation_id" not in st.session_state:
+    st.session_state.conversation_id = "streamlit-session"
 
 
 # ── Helper Functions ──────────────────────────────────────────────────────
-def load_chat_history(user_id: int) -> List[Dict]:
-    """Load chat history from database for a user."""
-    return get_user_messages(user_id)
-
-
-def send_chat_request(user_message: str, user_id: int) -> str:
-    """Send chat request to FastAPI backend."""
+def send_chat_request(user_message: str) -> str:
+    """Send chat request to FastAPI backend on Render."""
     try:
         response = requests.post(
-            f"{API_URL}/chat",
+            API_URL,
             json={
                 "user_message": user_message,
-                "conversation_id": str(user_id),
+                "conversation_id": st.session_state.conversation_id,
             },
             timeout=60,
         )
         if response.status_code == 200:
-            return response.json().get("response", "Sorry, I couldn't process that.")
+            return response.json().get("response", "عذراً، لم أتمكن من معالجة طلبك.")
         else:
-            return f"Error: {response.status_code}"
+            return f"⚠️ خطأ في الخادم: {response.status_code}"
+    except requests.exceptions.Timeout:
+        return "⚠️ انتهت مهلة الاتصال. يرجى المحاولة مرة أخرى."
+    except requests.exceptions.ConnectionError:
+        return "⚠️ حدث خطأ في الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت."
     except Exception as e:
-        return f"Connection error: {str(e)}"
+        return f"⚠️ حدث خطأ غير متوقع: {str(e)}"
 
 
-def display_chat_message(role: str, content: str):
+def display_message(role: str, content: str):
     """Display a chat message with appropriate styling."""
     if role == "user":
         with st.chat_message("user", avatar="👤"):
@@ -77,160 +68,81 @@ def display_chat_message(role: str, content: str):
             st.write(content)
 
 
-# ── Login Page ────────────────────────────────────────────────────────────
-def show_login_page():
-    st.title("🤖 FODWA Chatbot")
-    st.markdown("### Login")
-    
-    with st.form("login_form"):
-        username = st.text_input("Username", max_chars=50)
-        password = st.text_input("Password", type="password", max_chars=100)
-        submit = st.form_submit_button("Login", use_container_width=True)
-        
-        if submit:
-            if not username or not password:
-                st.error("Please enter both username and password")
-            else:
-                result = login(username, password)
-                if result["success"]:
-                    st.session_state.user_id = result["user_id"]
-                    st.session_state.username = result["username"]
-                    st.session_state.messages = load_chat_history(result["user_id"])
-                    st.session_state.page = "chat"
-                    st.rerun()
-                else:
-                    st.error(result["error"])
-    
-    st.markdown("---")
-    if st.button("Create new account", use_container_width=True):
-        st.session_state.page = "signup"
-        st.rerun()
+# ── UI Header ──────────────────────────────────────────────────────────────
+st.title("🤖 FODWA AI Assistant")
+st.markdown("""
+مساعد ذكي لمنصة فودوا - اسأل أي سؤال عن خدمات المنصة والبيع والشراء والإعلانات.
+""")
 
+st.markdown("---")
 
-# ── Signup Page ───────────────────────────────────────────────────────────
-def show_signup_page():
-    st.title("🤖 FODWA Chatbot")
-    st.markdown("### Create Account")
-    
-    with st.form("signup_form"):
-        username = st.text_input("Username (min 3 characters)", max_chars=50)
-        password = st.text_input("Password (min 6 characters)", type="password", max_chars=100)
-        confirm = st.text_input("Confirm Password", type="password", max_chars=100)
-        submit = st.form_submit_button("Sign Up", use_container_width=True)
-        
-        if submit:
-            if not username or not password:
-                st.error("Please fill all fields")
-            elif password != confirm:
-                st.error("Passwords do not match")
-            else:
-                result = signup(username, password)
-                if result["success"]:
-                    st.success("Account created! Please login.")
-                    st.session_state.page = "login"
-                    st.rerun()
-                else:
-                    st.error(result["error"])
-    
-    st.markdown("---")
-    if st.button("Back to Login", use_container_width=True):
-        st.session_state.page = "login"
-        st.rerun()
+# ── Predefined Questions ──────────────────────────────────────────────────
+st.markdown("### 💡 أسئلة سريعة")
 
+predefined_questions = [
+    "ما هي منصة فودوا؟",
+    "ما الخدمات التي تقدمها المنصة؟",
+    "كيف يمكنني البيع على فودوا؟",
+    "هل المنصة مجانية؟",
+]
 
-# ── Chat Page ──────────────────────────────────────────────────────────────
-def show_chat_page():
-    # Header with user info and logout
-    col1, col2, col3 = st.columns([3, 1, 1])
-    with col1:
-        st.title("🤖 FODWA Chatbot")
-    with col2:
-        st.write(f"👤 **{st.session_state.username}**")
-    with col3:
-        if st.button("Logout"):
-            st.session_state.user_id = None
-            st.session_state.username = None
-            st.session_state.messages = []
-            st.session_state.page = "login"
-            st.rerun()
-    
-    st.markdown("---")
-    
-    # Predefined questions
-    st.markdown("**💡 Quick Questions:**")
-    predefined_questions = [
-        "ما هي منصة فودوا؟",
-        "كيف يمكنني نشر إعلان؟",
-        "ما هي الخدمات المتاحة؟",
-        "كيف أتواصل مع الدعم؟",
-    ]
-    
-    cols = st.columns(4)
-    for i, question in enumerate(predefined_questions):
-        if cols[i].button(question, key=f"pq_{i}"):
-            # Save user message
-            save_message(st.session_state.user_id, "user", question)
-            st.session_state.messages.append({"role": "user", "content": question})
-            
-            # Get response
-            with st.spinner("جاري التفكير..."):
-                response = send_chat_request(question, st.session_state.user_id)
-            
-            # Save assistant message
-            save_message(st.session_state.user_id, "assistant", response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            st.rerun()
-    
-    st.markdown("---")
-    
-    # Chat history
-    st.markdown("**💬 Chat History:**")
-    
-    # Display messages
-    chat_container = st.container()
-    with chat_container:
-        for msg in st.session_state.messages:
-            display_chat_message(msg["role"], msg["content"])
-    
-    # Chat input
-    if prompt := st.chat_input("اكتب رسالتك هنا..."):
-        # Save user message
-        save_message(st.session_state.user_id, "user", prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+cols = st.columns(4)
+for i, question in enumerate(predefined_questions):
+    if cols[i].button(question, key=f"pq_{i}", use_container_width=True):
+        # Add user message
+        st.session_state.messages.append({"role": "user", "content": question})
         
-        # Display user message
-        with chat_container:
-            display_chat_message("user", prompt)
-        
-        # Get response
+        # Get response from API
         with st.spinner("جاري التفكير..."):
-            response = send_chat_request(prompt, st.session_state.user_id)
+            response = send_chat_request(question)
         
-        # Save and display assistant message
-        save_message(st.session_state.user_id, "assistant", response)
+        # Add assistant response
         st.session_state.messages.append({"role": "assistant", "content": response})
-        
-        with chat_container:
-            display_chat_message("assistant", response)
+        st.rerun()
+
+st.markdown("---")
+
+# ── Chat History Display ──────────────────────────────────────────────────
+st.markdown("### 💬 المحادثة")
+
+# Display all messages
+chat_container = st.container()
+with chat_container:
+    for msg in st.session_state.messages:
+        display_message(msg["role"], msg["content"])
+
+# ── Chat Input ─────────────────────────────────────────────────────────────
+if prompt := st.chat_input("اكتب سؤالك هنا..."):
+    # Add user message
+    st.session_state.messages.append({"role": "user", "content": prompt})
     
-    # Clear chat button
-    st.markdown("---")
-    if st.button("🗑️ Clear Chat History", use_container_width=True):
-        clear_user_messages(st.session_state.user_id)
+    # Display user message immediately
+    with chat_container:
+        display_message("user", prompt)
+    
+    # Get response from API
+    with st.spinner("جاري التفكير..."):
+        response = send_chat_request(prompt)
+    
+    # Add assistant response
+    st.session_state.messages.append({"role": "assistant", "content": response})
+    
+    # Display assistant response
+    with chat_container:
+        display_message("assistant", response)
+
+# ── Clear Chat Button ─────────────────────────────────────────────────────
+st.markdown("---")
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    if st.button("🗑️ مسح المحادثة", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
-
-# ── Main App Router ───────────────────────────────────────────────────────
-def main():
-    if st.session_state.user_id is None:
-        if st.session_state.page == "signup":
-            show_signup_page()
-        else:
-            show_login_page()
-    else:
-        show_chat_page()
-
-
-if __name__ == "__main__":
-    main()
+# ── Footer ────────────────────────────────────────────────────────────────
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #888; font-size: 0.9em;">
+    🚀 مدعوم بواسطة AI | FODWA Chatbot v1.0
+</div>
+""", unsafe_allow_html=True)
