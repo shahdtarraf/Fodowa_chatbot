@@ -45,20 +45,29 @@ def load_vector_store() -> Optional[FAISS]:
 
     logger.info("Loading FAISS index from '%s' …", FAISS_INDEX_PATH)
     try:
+        # Validate API token
+        if not HUGGINGFACEHUB_API_TOKEN:
+            logger.error("HUGGINGFACEHUB_API_TOKEN not set. Cannot load FAISS index.")
+            return None
+        
         # Use HuggingFace Inference API - lightweight, accurate embeddings
+        # Must match the embeddings used during ingestion
+        logger.info("Initializing HuggingFace embeddings (model: %s)...", HF_EMBEDDING_MODEL)
         embeddings = HuggingFaceEndpointEmbeddings(
             model=HF_EMBEDDING_MODEL,
             huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
         )
+        
+        logger.info("Loading FAISS index from disk...")
         _vector_store = FAISS.load_local(
             FAISS_INDEX_PATH,
             embeddings,
             allow_dangerous_deserialization=True,
         )
-        logger.info("FAISS index loaded successfully (%d vectors).", _vector_store.index.ntotal)
+        logger.info("✅ FAISS index loaded successfully (%d vectors).", _vector_store.index.ntotal)
         return _vector_store
     except Exception as exc:
-        logger.error("Failed to load FAISS index: %s", exc, exc_info=True)
+        logger.error("❌ Failed to load FAISS index: %s", exc, exc_info=True)
         return None
 
 
