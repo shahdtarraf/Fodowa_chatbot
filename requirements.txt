@@ -14,3 +14,7 @@ pydantic>=2.7.0
 tenacity>=8.2.0
 huggingface-hub>=0.23.0
 pypdf==4.1.0
+
+# ── Authentication & UI ──────────────────────────────────────────────────
+streamlit>=1.32.0
+passlib>=1.7.4
