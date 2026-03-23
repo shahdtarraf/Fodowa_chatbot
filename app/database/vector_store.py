@@ -2,8 +2,8 @@
 FAISS vector-store loader.
 
 PRODUCTION ARCHITECTURE:
-- Uses FakeEmbeddings for loading pre-built FAISS index
-- No heavy embedding model loaded at runtime (saves ~400MB RAM)
+- Uses HuggingFace Inference API for embeddings (lightweight, no local model)
+- Consistent embeddings between ingestion and retrieval
 - FAISS index must be pre-built locally using ingest_data.py
 """
 
@@ -11,9 +11,9 @@ from typing import Optional
 import os
 
 from langchain_community.vectorstores import FAISS
-from langchain_core.embeddings import FakeEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
-from app.utils.config import FAISS_INDEX_PATH
+from app.utils.config import FAISS_INDEX_PATH, HF_EMBEDDING_MODEL, HUGGINGFACEHUB_API_TOKEN
 from app.utils.logger import logger
 
 # Module-level singleton — populated by ``load_vector_store()``.
@@ -24,10 +24,10 @@ def load_vector_store() -> Optional[FAISS]:
     """
     Load the pre-built FAISS index from disk.
     
-    Uses FakeEmbeddings because:
-    - The index is already built with real embeddings
-    - We only need embeddings for similarity search interface
-    - FakeEmbeddings are lightweight (no model loading)
+    Uses HuggingFaceInferenceAPIEmbeddings for:
+    - Accurate semantic search (same embeddings used during ingestion)
+    - Lightweight runtime (no local model loading, ~0MB RAM)
+    - Consistency with ingest_data.py
     """
     global _vector_store
 
@@ -45,9 +45,11 @@ def load_vector_store() -> Optional[FAISS]:
 
     logger.info("Loading FAISS index from '%s' …", FAISS_INDEX_PATH)
     try:
-        # Use FakeEmbeddings - lightweight, no model loading
-        # The index was built with real embeddings, we just need the interface
-        embeddings = FakeEmbeddings()
+        # Use HuggingFace Inference API - lightweight, accurate embeddings
+        embeddings = HuggingFaceEndpointEmbeddings(
+            model=HF_EMBEDDING_MODEL,
+            huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
+        )
         _vector_store = FAISS.load_local(
             FAISS_INDEX_PATH,
             embeddings,
