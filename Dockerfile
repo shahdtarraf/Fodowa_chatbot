@@ -24,8 +24,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY . .
 
-# Expose the port Render expects
-EXPOSE 10000
+# Render sets PORT environment variable - use it
+ENV PORT=10000
+EXPOSE $PORT
 
-# Default startup command
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
+# Start command using PORT from environment (shell form for variable expansion)
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT

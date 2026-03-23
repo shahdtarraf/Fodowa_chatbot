@@ -11,9 +11,6 @@ env/
 # Environment variables
 .env
 
-# FAISS index (generated, large)
-data/faiss_index/
-
 # IDE
 .idea/
 .vscode/
