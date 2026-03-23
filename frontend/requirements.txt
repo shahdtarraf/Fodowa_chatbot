@@ -1,0 +1,5 @@
+# Frontend Requirements (Streamlit Cloud deployment)
+# Lightweight dependencies only - NO ML libraries
+
+streamlit>=1.30.0
+requests>=2.31.0

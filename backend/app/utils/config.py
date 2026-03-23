@@ -3,9 +3,13 @@ Application configuration — loads environment variables from .env file.
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Base directory (backend folder)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # ── HuggingFace ─────────────────────────────────────────
 HUGGINGFACEHUB_API_TOKEN: str = os.getenv("HUGGINGFACEHUB_API_TOKEN", "")
@@ -23,7 +27,7 @@ JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
 JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 
 # ── FAISS ───────────────────────────────────────────────
-FAISS_INDEX_PATH: str = os.getenv("FAISS_INDEX_PATH", "data/faiss_index")
+FAISS_INDEX_PATH: str = os.getenv("FAISS_INDEX_PATH", str(BASE_DIR / "data" / "faiss_index"))
 
 # ── RAG Settings ────────────────────────────────────────
 RAG_CHUNK_SIZE: int = int(os.getenv("RAG_CHUNK_SIZE", "1000"))

@@ -1,0 +1,14 @@
+# Dockerfile for building FAISS index locally (matches Render environment)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install exact versions from requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Run ingestion
+CMD ["python", "app/ingest_data.py"]

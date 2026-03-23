@@ -21,8 +21,9 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code
-COPY . .
+# Copy application code (app/ and data/ folders)
+COPY app/ ./app/
+COPY data/ ./data/
 
 # Render sets PORT environment variable - use it
 ENV PORT=10000
