@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Environment variables for proper logging
+ENV PYTHONUNBUFFERED=1
+
 # Copy requirements first for caching
 COPY requirements.txt .
 
