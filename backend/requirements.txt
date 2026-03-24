@@ -1,5 +1,5 @@
-# Backend Requirements - Pinned versions for fast Docker builds
-# NO version ranges - prevents pip backtracking
+# Backend Requirements - Minimal for Render (no ML model downloads)
+# NO torch, transformers, sentence-transformers
 
 # Core framework
 fastapi==0.110.0
@@ -11,22 +11,17 @@ pydantic==2.7.1
 pydantic-core==2.18.2
 pydantic-settings==2.2.1
 
-# LangChain ecosystem - exact pinned versions
+# LangChain ecosystem - minimal
 langchain==0.2.1
 langchain-core==0.2.3
 langchain-community==0.2.1
 langchain-text-splitters==0.2.0
 langsmith==0.1.147
 
-# Vector store
+# Vector store (load only - no embeddings needed)
 faiss-cpu==1.7.4
 
-# Local embeddings (no external API)
-sentence-transformers==2.6.1
-torch==2.2.1
-transformers==4.41.2
-tokenizers==0.19.1
-safetensors==0.7.0
+# HuggingFace Hub for LLM inference only
 huggingface_hub==0.23.0
 
 # Utilities
