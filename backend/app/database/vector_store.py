@@ -9,10 +9,9 @@ PRODUCTION ARCHITECTURE:
 
 from typing import Optional
 import os
-import pickle
 
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceInferenceEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
 from app.utils.config import FAISS_INDEX_PATH, HF_EMBEDDING_MODEL, HUGGINGFACEHUB_API_TOKEN
 from app.utils.logger import logger
@@ -54,29 +53,17 @@ def load_vector_store() -> Optional[FAISS]:
         # Use HuggingFace Inference API - lightweight, accurate embeddings
         # Must match the embeddings used during ingestion
         logger.info("Initializing HuggingFace embeddings (model: %s)...", HF_EMBEDDING_MODEL)
-        embeddings = HuggingFaceInferenceEmbeddings(
-            model_name=HF_EMBEDDING_MODEL,
-            huggingface_api_token=HUGGINGFACEHUB_API_TOKEN,
+        embeddings = HuggingFaceEndpointEmbeddings(
+            model=HF_EMBEDDING_MODEL,
+            huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
         )
         
         logger.info("Loading FAISS index from disk...")
-        
-        # Load FAISS index manually to avoid Pydantic v1/v2 pickle issues
-        import faiss
-        index = faiss.read_index(index_file)
-        
-        # Load docstore with Pydantic v2 compatibility
-        with open(pkl_file, "rb") as f:
-            data = pickle.load(f)
-        
-        # Reconstruct vector store
-        _vector_store = FAISS(
-            embedding_function=embeddings.embed_query,
-            index=index,
-            docstore=data.get("docstore") if isinstance(data, dict) else data[0],
-            index_to_docstore_id=data.get("index_to_docstore_id") if isinstance(data, dict) else data[1],
+        _vector_store = FAISS.load_local(
+            FAISS_INDEX_PATH,
+            embeddings,
+            allow_dangerous_deserialization=True,
         )
-        
         logger.info("✅ FAISS index loaded successfully (%d vectors).", _vector_store.index.ntotal)
         return _vector_store
     except Exception as exc:
