@@ -13,9 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 COPY data/ ./data/
 
-# Render sets PORT environment variable
+# Render sets PORT environment variable dynamically
+# Default to 10000 for local development
 ENV PORT=10000
-EXPOSE $PORT
 
-# Start FastAPI server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
+# Start FastAPI server with dynamic port
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
