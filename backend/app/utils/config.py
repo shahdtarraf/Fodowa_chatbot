@@ -28,6 +28,7 @@ JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 
 # ── FAISS ───────────────────────────────────────────────
 FAISS_INDEX_PATH: str = os.getenv("FAISS_INDEX_PATH", str(BASE_DIR / "data" / "faiss_index"))
+PDF_PATH: str = os.getenv("PDF_PATH", str(BASE_DIR / "data" / "knowledge_base.pdf"))
 
 # ── RAG Settings ────────────────────────────────────────
 RAG_CHUNK_SIZE: int = int(os.getenv("RAG_CHUNK_SIZE", "1000"))

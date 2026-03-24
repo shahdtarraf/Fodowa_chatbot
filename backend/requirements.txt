@@ -1,5 +1,5 @@
-# Backend Requirements - Minimal for Render (no ML model downloads)
-# NO torch, transformers, sentence-transformers
+# Backend Requirements - Minimal for Render with auto-rebuild capability
+# Includes sentence-transformers for local embeddings
 
 # Core framework
 fastapi==0.110.0
@@ -11,17 +11,22 @@ pydantic==2.7.1
 pydantic-core==2.18.2
 pydantic-settings==2.2.1
 
-# LangChain ecosystem - minimal
+# LangChain ecosystem
 langchain==0.2.1
 langchain-core==0.2.3
 langchain-community==0.2.1
 langchain-text-splitters==0.2.0
 langsmith==0.1.147
 
-# Vector store (load only - no embeddings needed)
+# Vector store
 faiss-cpu==1.7.4
 
-# HuggingFace Hub for LLM inference only
+# Local embeddings (for auto-rebuild)
+sentence-transformers==2.6.1
+torch==2.2.1+cpu
+transformers==4.41.2
+tokenizers==0.19.1
+safetensors==0.7.0
 huggingface_hub==0.23.0
 
 # Utilities

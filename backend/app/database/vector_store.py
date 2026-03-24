@@ -1,38 +1,99 @@
 """
-FAISS vector-store loader - LOAD ONLY (NO EMBEDDINGS).
+FAISS vector-store loader with auto-rebuild capability.
 
-CRITICAL: FAISS index MUST be pre-built before deployment.
-- No runtime rebuild (too slow, requires model download)
-- No model download at startup
-- No embeddings initialization
-- Fast startup (<5 seconds)
-
-The index is built offline using ingest_data.py and committed to the repo.
-At runtime, we ONLY load the pre-built index - no embeddings needed.
+PRODUCTION ARCHITECTURE:
+- Try to load pre-built FAISS index first
+- If loading fails (Pydantic incompatibility), auto-rebuild using local embeddings
+- Uses HuggingFaceEmbeddings for consistent embeddings
+- No external API dependency
 """
 
 from typing import Optional
 import os
-import pickle
 
 from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
-from app.utils.config import FAISS_INDEX_PATH
+from app.utils.config import FAISS_INDEX_PATH, HF_EMBEDDING_MODEL, PDF_PATH
 from app.utils.logger import logger
 
 # Module-level singleton — populated by ``load_vector_store()``.
 _vector_store: Optional[FAISS] = None
 
 
-def load_vector_store() -> Optional[FAISS]:
+def _build_fresh_index() -> Optional[FAISS]:
     """
-    Load the pre-built FAISS index from disk.
+    Build a fresh FAISS index from the PDF.
     
-    CRITICAL: This function ONLY loads - no rebuild, no model download, no embeddings.
-    The FAISS index must be pre-built using ingest_data.py before deployment.
+    This is called when:
+    - FAISS index doesn't exist
+    - FAISS index is corrupted
+    - FAISS index has Pydantic version mismatch
     
     Returns:
-        FAISS vector store instance, or None if index doesn't exist.
+        FAISS vector store instance, or None if build fails.
+    """
+    try:
+        logger.info("🔄 Building fresh FAISS index...")
+        
+        # Check if PDF exists
+        if not os.path.exists(PDF_PATH):
+            logger.error("❌ PDF file not found at '%s'. Cannot build index.", PDF_PATH)
+            return None
+        
+        # Load PDF
+        from langchain_community.document_loaders import PyPDFLoader
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        
+        logger.info("📄 Loading PDF from '%s'...", PDF_PATH)
+        loader = PyPDFLoader(PDF_PATH)
+        documents = loader.load()
+        logger.info("   Loaded %d page(s).", len(documents))
+        
+        # Split into chunks
+        logger.info("✂️ Splitting into chunks...")
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len,
+            separators=["\n\n", "\n", "。", ".", " ", ""],
+        )
+        chunks = splitter.split_documents(documents)
+        logger.info("   Created %d chunk(s).", len(chunks))
+        
+        # Initialize embeddings
+        logger.info("🧠 Initializing embeddings (model: %s)...", HF_EMBEDDING_MODEL)
+        embeddings = HuggingFaceEmbeddings(
+            model_name=HF_EMBEDDING_MODEL,
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True},
+        )
+        
+        # Build FAISS index
+        logger.info("🔨 Building FAISS index from %d chunks...", len(chunks))
+        vector_store = FAISS.from_documents(chunks, embeddings)
+        
+        # Save to disk
+        os.makedirs(FAISS_INDEX_PATH, exist_ok=True)
+        vector_store.save_local(FAISS_INDEX_PATH)
+        logger.info("💾 FAISS index saved to '%s'.", FAISS_INDEX_PATH)
+        
+        logger.info("✅ FAISS index built successfully (%d vectors).", vector_store.index.ntotal)
+        return vector_store
+        
+    except Exception as exc:
+        logger.error("❌ Failed to build FAISS index: %s", exc, exc_info=True)
+        return None
+
+
+def load_vector_store() -> Optional[FAISS]:
+    """
+    Load the FAISS index from disk.
+    
+    If loading fails (Pydantic incompatibility, corruption), automatically rebuilds.
+    
+    Returns:
+        FAISS vector store instance, or None if both load and rebuild fail.
     """
     global _vector_store
     
@@ -42,59 +103,49 @@ def load_vector_store() -> Optional[FAISS]:
 
     # Check if index directory exists
     if not os.path.exists(FAISS_INDEX_PATH):
-        logger.warning("⚠️ FAISS index directory '%s' not found. RAG disabled.", FAISS_INDEX_PATH)
-        logger.warning("⚠️ Run 'python app/ingest_data.py' locally to build the index.")
-        return None
+        logger.warning("⚠️ FAISS index directory '%s' not found.", FAISS_INDEX_PATH)
+        _vector_store = _build_fresh_index()
+        return _vector_store
 
     # Check for required FAISS files
     index_file = os.path.join(FAISS_INDEX_PATH, "index.faiss")
     pkl_file = os.path.join(FAISS_INDEX_PATH, "index.pkl")
     if not os.path.exists(index_file) or not os.path.exists(pkl_file):
-        logger.warning("⚠️ FAISS index files not found in '%s'. RAG disabled.", FAISS_INDEX_PATH)
-        return None
+        logger.warning("⚠️ FAISS index files not found in '%s'.", FAISS_INDEX_PATH)
+        _vector_store = _build_fresh_index()
+        return _vector_store
 
     logger.info("Loading FAISS index from '%s' …", FAISS_INDEX_PATH)
     try:
-        # Load FAISS directly without embeddings
-        # The index is already built - we just need to deserialize it
-        import faiss
-        
-        # Load the FAISS index
-        index = faiss.read_index(index_file)
-        
-        # Load the docstore and index_to_docstore_id
-        with open(pkl_file, "rb") as f:
-            docstore, index_to_docstore_id = pickle.load(f)
-        
-        # Create a minimal FAISS wrapper without embeddings
-        # We'll use a dummy embedding function for similarity search
-        class DummyEmbeddings:
-            """Dummy embeddings - not used for pre-built index."""
-            def embed_documents(self, texts):
-                raise NotImplementedError("Embeddings not available at runtime")
-            def embed_query(self, text):
-                raise NotImplementedError("Embeddings not available at runtime")
-        
-        # Create FAISS instance manually
-        _vector_store = FAISS(
-            embedding_function=DummyEmbeddings(),
-            index=index,
-            docstore=docstore,
-            index_to_docstore_id=index_to_docstore_id,
+        # Initialize embeddings (same as used during ingestion)
+        logger.info("Initializing embeddings (model: %s)...", HF_EMBEDDING_MODEL)
+        embeddings = HuggingFaceEmbeddings(
+            model_name=HF_EMBEDDING_MODEL,
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True},
         )
         
-        logger.info("✅ FAISS index loaded successfully (%d vectors).", index.ntotal)
+        # Load FAISS index
+        _vector_store = FAISS.load_local(
+            FAISS_INDEX_PATH,
+            embeddings,
+            allow_dangerous_deserialization=True,
+        )
+        logger.info("✅ FAISS index loaded successfully (%d vectors).", _vector_store.index.ntotal)
         return _vector_store
         
     except KeyError as exc:
-        # Pydantic v1/v2 incompatibility
-        logger.error("❌ FAISS index incompatible (Pydantic version mismatch): %s", exc)
-        logger.error("❌ Rebuild the index locally using: python app/ingest_data.py")
-        return None
+        # Pydantic v1/v2 incompatibility - rebuild index
+        logger.warning("⚠️ FAISS index incompatible (Pydantic version mismatch): %s", exc)
+        logger.info("🔄 Rebuilding FAISS index...")
+        _vector_store = _build_fresh_index()
+        return _vector_store
         
     except Exception as exc:
         logger.error("❌ Failed to load FAISS index: %s", exc, exc_info=True)
-        return None
+        logger.info("🔄 Attempting to rebuild FAISS index...")
+        _vector_store = _build_fresh_index()
+        return _vector_store
 
 
 def get_vector_store() -> Optional[FAISS]:
