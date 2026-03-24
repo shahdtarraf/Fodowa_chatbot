@@ -2,7 +2,7 @@
 FAISS vector-store loader with auto-rebuild capability.
 
 PRODUCTION ARCHITECTURE:
-- Uses HuggingFace Inference API for embeddings (lightweight, no local model)
+- Uses local HuggingFace embeddings (no external API dependency)
 - Consistent embeddings between ingestion and retrieval
 - Auto-rebuilds FAISS index if corrupted or incompatible
 """
@@ -11,9 +11,9 @@ from typing import Optional
 import os
 
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
-from app.utils.config import FAISS_INDEX_PATH, HF_EMBEDDING_MODEL, HUGGINGFACEHUB_API_TOKEN
+from app.utils.config import FAISS_INDEX_PATH, HF_EMBEDDING_MODEL
 from app.utils.logger import logger
 
 # Module-level singleton — populated by ``load_vector_store()``.
@@ -28,13 +28,11 @@ def _rebuild_index() -> Optional[FAISS]:
         build_faiss_index()
         
         # Try loading again after rebuild
-        if not HUGGINGFACEHUB_API_TOKEN:
-            logger.error("HUGGINGFACEHUB_API_TOKEN not set. Cannot load FAISS index.")
-            return None
-        
-        embeddings = HuggingFaceEndpointEmbeddings(
-            model=HF_EMBEDDING_MODEL,
-            huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
+        logger.info("Initializing local HuggingFace embeddings (model: %s)...", HF_EMBEDDING_MODEL)
+        embeddings = HuggingFaceEmbeddings(
+            model_name=HF_EMBEDDING_MODEL,
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True},
         )
         
         _vs = FAISS.load_local(
@@ -55,9 +53,9 @@ def load_vector_store() -> Optional[FAISS]:
     
     If loading fails (Pydantic incompatibility, corruption), automatically rebuilds.
     
-    Uses HuggingFaceEndpointEmbeddings for:
+    Uses HuggingFaceEmbeddings for:
     - Accurate semantic search (same embeddings used during ingestion)
-    - Lightweight runtime (no local model loading, ~0MB RAM)
+    - Local embeddings (no external API dependency)
     - Consistency with ingest_data.py
     """
     global _vector_store
@@ -76,17 +74,12 @@ def load_vector_store() -> Optional[FAISS]:
 
     logger.info("Loading FAISS index from '%s' …", FAISS_INDEX_PATH)
     try:
-        # Validate API token
-        if not HUGGINGFACEHUB_API_TOKEN:
-            logger.error("HUGGINGFACEHUB_API_TOKEN not set. Cannot load FAISS index.")
-            return None
-        
-        # Use HuggingFace Inference API - lightweight, accurate embeddings
-        # Must match the embeddings used during ingestion
-        logger.info("Initializing HuggingFace embeddings (model: %s)...", HF_EMBEDDING_MODEL)
-        embeddings = HuggingFaceEndpointEmbeddings(
-            model=HF_EMBEDDING_MODEL,
-            huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
+        # Use local HuggingFace embeddings - no external API dependency
+        logger.info("Initializing local HuggingFace embeddings (model: %s)...", HF_EMBEDDING_MODEL)
+        embeddings = HuggingFaceEmbeddings(
+            model_name=HF_EMBEDDING_MODEL,
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True},
         )
         
         logger.info("Loading FAISS index from disk...")

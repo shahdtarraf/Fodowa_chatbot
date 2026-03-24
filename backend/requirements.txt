@@ -15,18 +15,19 @@ pydantic-settings==2.2.1
 langchain==0.2.1
 langchain-core==0.2.3
 langchain-community==0.2.1
-langchain-huggingface==0.0.3
 langchain-text-splitters==0.2.0
 langsmith==0.1.147
 
 # Vector store
 faiss-cpu==1.7.4
 
-# HuggingFace
-huggingface_hub==0.23.0
-tokenizers==0.19.1
+# Local embeddings (no external API)
+sentence-transformers==2.6.1
+torch==2.2.1
 transformers==4.41.2
+tokenizers==0.19.1
 safetensors==0.7.0
+huggingface_hub==0.23.0
 
 # Utilities
 tenacity==8.5.0
