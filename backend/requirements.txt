@@ -23,7 +23,7 @@ faiss-cpu==1.7.4
 
 # Local embeddings (for auto-rebuild)
 sentence-transformers==2.6.1
-torch==2.2.1+cpu
+torch==2.2.1
 transformers==4.41.2
 tokenizers==0.19.1
 safetensors==0.7.0
