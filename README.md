@@ -57,14 +57,40 @@ Fodowa_chatbot/
 
 ### Backend (Render)
 
+#### Option A: Using render.yaml (Recommended)
+
 1. Push to GitHub
-2. Create Web Service on [Render](https://render.com)
+2. Create Web Service on [Render](https://dashboard.render.com)
+3. Connect repository: `shahdtarraf/Fodowa_chatbot`
+4. Render will auto-detect `backend/render.yaml`
+5. Add environment variable: `HUGGINGFACEHUB_API_TOKEN`
+
+#### Option B: Manual Configuration
+
+1. Create Web Service on [Render](https://dashboard.render.com)
+2. Connect repository: `shahdtarraf/Fodowa_chatbot`
 3. Set **Root Directory**: `backend`
-4. Set **Docker Context**: `backend`
-5. Environment variables:
-   - `HUGGINGFACEHUB_API_TOKEN`
-   - `HF_MODEL_ID` (default: Qwen/Qwen2.5-7B-Instruct)
-   - `HF_EMBEDDING_MODEL`
+4. Set **Environment**: `Docker`
+5. Set **Docker Context**: `backend`
+6. Set **Dockerfile Path**: `./Dockerfile`
+
+#### Required Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `HUGGINGFACEHUB_API_TOKEN` | HF API token for embeddings | ✅ Yes |
+| `HF_MODEL_ID` | LLM model ID | No (default: Qwen/Qwen2.5-7B-Instruct) |
+| `HF_EMBEDDING_MODEL` | Embedding model | No (default: paraphrase-multilingual-MiniLM-L12-v2) |
+| `RAG_TOP_K` | Retrieved chunks count | No (default: 5) |
+
+#### Expected Logs on Startup
+
+```
+✅ Loading FAISS index from 'data/faiss_index' …
+✅ Initializing HuggingFace embeddings...
+✅ FAISS index loaded successfully (16 vectors).
+✅ Uvicorn running on http://0.0.0.0:$PORT
+```
 
 **Backend URL:** `https://fodowa-chatbot.onrender.com`
 

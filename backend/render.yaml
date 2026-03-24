@@ -3,6 +3,8 @@ services:
     name: fodwa-chatbot
     env: docker
     plan: free
+    # Root directory for backend deployment
+    dockerContext: .
     dockerfilePath: ./Dockerfile
     envVars:
       - key: HUGGINGFACEHUB_API_TOKEN
