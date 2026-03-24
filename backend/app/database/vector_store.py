@@ -11,7 +11,7 @@ from typing import Optional
 import os
 
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 
 from app.utils.config import FAISS_INDEX_PATH, HF_EMBEDDING_MODEL, HUGGINGFACEHUB_API_TOKEN
 from app.utils.logger import logger
@@ -32,9 +32,9 @@ def _rebuild_index() -> Optional[FAISS]:
             logger.error("HUGGINGFACEHUB_API_TOKEN not set. Cannot load FAISS index.")
             return None
         
-        embeddings = HuggingFaceEndpointEmbeddings(
-            model=HF_EMBEDDING_MODEL,
-            huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
+        embeddings = HuggingFaceInferenceAPIEmbeddings(
+            model_name=HF_EMBEDDING_MODEL,
+            api_key=HUGGINGFACEHUB_API_TOKEN,
         )
         
         _vs = FAISS.load_local(
@@ -84,9 +84,9 @@ def load_vector_store() -> Optional[FAISS]:
         # Use HuggingFace Inference API - lightweight, accurate embeddings
         # Must match the embeddings used during ingestion
         logger.info("Initializing HuggingFace embeddings (model: %s)...", HF_EMBEDDING_MODEL)
-        embeddings = HuggingFaceEndpointEmbeddings(
-            model=HF_EMBEDDING_MODEL,
-            huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
+        embeddings = HuggingFaceInferenceAPIEmbeddings(
+            model_name=HF_EMBEDDING_MODEL,
+            api_key=HUGGINGFACEHUB_API_TOKEN,
         )
         
         logger.info("Loading FAISS index from disk...")

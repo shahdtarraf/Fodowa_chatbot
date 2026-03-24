@@ -27,7 +27,7 @@ load_dotenv()
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 from app.utils.config import (
@@ -76,9 +76,9 @@ def build_faiss_index() -> None:
     # 5. Generate embeddings via HuggingFace Inference API (same as runtime)
     logger.info("🧠  Connecting to HuggingFace Inference API for embeddings...")
     logger.info("   Model: %s", HF_EMBEDDING_MODEL)
-    embeddings = HuggingFaceEndpointEmbeddings(
-        model=HF_EMBEDDING_MODEL,
-        huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN,
+    embeddings = HuggingFaceInferenceAPIEmbeddings(
+        model_name=HF_EMBEDDING_MODEL,
+        api_key=HUGGINGFACEHUB_API_TOKEN,
     )
     logger.info("   ✅ Embedding client ready.")
 
