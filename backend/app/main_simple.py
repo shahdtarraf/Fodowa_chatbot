@@ -26,7 +26,6 @@ from app.services.faq_service import get_chat_response, load_faq
 class ChatRequest(BaseModel):
     message: str
     conversation_id: str = "default"
-    token: str = ""
 
 class ChatResponse(BaseModel):
     response: str
@@ -95,7 +94,7 @@ async def chat(request: ChatRequest):
     
     try:
         response = get_chat_response(request.message)
-        logger.info(f"✅ Response generated")
+        logger.info(f"✅ Response: {response[:50]}...")
         return ChatResponse(response=response)
     except Exception as e:
         logger.error(f"❌ Error: {e}")

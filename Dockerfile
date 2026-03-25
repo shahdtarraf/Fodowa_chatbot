@@ -1,31 +1,23 @@
-# Production Dockerfile for Render deployment
-# This file MUST be at the root level for Render to find it
+# Minimal Dockerfile for Render Free (512MB RAM)
+# NO ML models, NO embeddings, fast startup
 
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Environment variables for proper logging and fast startup
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV TRANSFORMERS_CACHE=/app/.cache
-ENV HF_HOME=/app/.cache
 
-# Install dependencies in single layer with --no-cache-dir
+# Install minimal dependencies
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download the embedding model during build (not runtime)
-# This caches the model in the Docker image for faster startup
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')"
-
-# Copy application code and data (including pre-built FAISS index)
+# Copy app and FAQ data only
 COPY backend/app/ ./app/
-COPY backend/data/ ./data/
+COPY backend/data/faq.json ./data/faq.json
 
-# Render sets PORT environment variable dynamically
+# Render port
 ENV PORT=10000
 
-# Start FastAPI server with dynamic port
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+# Start server
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
